@@ -1,9 +1,7 @@
-# simple_logger.py
 import logging
 import os
 import sys
 import datetime
-from logging.handlers import TimedRotatingFileHandler
 from typing import Optional
 
 import colorama
@@ -11,46 +9,50 @@ from colorama import Fore, Style
 
 colorama.init(autoreset=True)
 
-LOG_DIR = os.getenv("LOG_DIR", "E:\LOG_DIR")
-LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+SUCCESS_LEVEL = 25
+logging.addLevelName(SUCCESS_LEVEL, "SUCCESS")
 
+LOG_DIR = os.getenv("LOG_DIR", "logs")
 os.makedirs(LOG_DIR, exist_ok=True)
 
 
-def get_log_file_path():
-    today = datetime.datetime.now().strftime("%Y-%m-%d")
-    return os.path.join(LOG_DIR, f"{today}.log")
+def get_log_file_path(name: Optional[str], log_file: Optional[str]) -> str:
+    today = datetime.datetime.now().strftime('%Y-%m-%d')
+    base_name = log_file or name or "default"
+    return os.path.join(LOG_DIR, f"{base_name}_{today}.log")
 
 
 class SimpleLogger:
-    def __init__(self, name: str, level: Optional[str] = None):
-        self.name = name
-        self.logger = logging.getLogger(name)
+    def __init__(self, name: Optional[str] = None, log_file: Optional[str] = None):
+        self.name = name or "default"
+        self.log_file = log_file
+        self.logger = logging.getLogger(self.name)
+
         if not self.logger.hasHandlers():
-            self._configure_logger(level or LOG_LEVEL)
+            self._configure_logger()
 
-    def _configure_logger(self, level: str):
-        log_file = get_log_file_path()
+    def _configure_logger(self):
+        log_file = get_log_file_path(self.name, self.log_file)
 
-        formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s - %(message)s")
+        console_formatter = LoguruLikeFormatter(self.name)
+        file_formatter = LoguruPlainFormatter(self.name)
 
-        file_handler = TimedRotatingFileHandler(log_file, when="midnight", interval=1, encoding="utf-8")
-        file_handler.setFormatter(formatter)
-        file_handler.setLevel(level)
+        file_handler = logging.FileHandler(log_file, encoding="utf-8")
+        file_handler.setFormatter(file_formatter)
 
         console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setLevel(level)
-        console_handler.setFormatter(ColoredFormatter())
+        console_handler.setFormatter(console_formatter)
 
-        self.logger.setLevel(level)
+        self.logger.setLevel(logging.DEBUG)
         self.logger.addHandler(file_handler)
         self.logger.addHandler(console_handler)
 
     def log(self, level, message, **kwargs):
-        context = " ".join(f"{k}={v}" for k, v in kwargs.items())
-        if context:
-            message = f"{message} | {context}"
-        self.logger.log(level, message)
+        enriched_message = self._enrich_message(message, **kwargs)
+        self.logger.log(level, enriched_message)
+
+    def success(self, message, **kwargs):
+        self.log(SUCCESS_LEVEL, message, **kwargs)
 
     def info(self, message, **kwargs):
         self.log(logging.INFO, message, **kwargs)
@@ -67,6 +69,9 @@ class SimpleLogger:
     async def alog(self, level, message, **kwargs):
         self.log(level, message, **kwargs)
 
+    async def asuccess(self, message, **kwargs):
+        await self.alog(SUCCESS_LEVEL, message, **kwargs)
+
     async def ainfo(self, message, **kwargs):
         await self.alog(logging.INFO, message, **kwargs)
 
@@ -79,26 +84,50 @@ class SimpleLogger:
     async def acritical(self, message, **kwargs):
         await self.alog(logging.CRITICAL, message, **kwargs)
 
+    def _enrich_message(self, message, **kwargs):
+        if kwargs:
+            context = " | " + " ".join(f"{k}={v}" for k, v in kwargs.items())
+            return f"{message}{context}"
+        return message
 
-class ColoredFormatter(logging.Formatter):
+
+class LoguruLikeFormatter(logging.Formatter):
     LEVEL_COLORS = {
         logging.DEBUG: Fore.BLUE,
         logging.INFO: Fore.GREEN,
+        SUCCESS_LEVEL: Fore.CYAN,
         logging.WARNING: Fore.YELLOW,
         logging.ERROR: Fore.RED,
         logging.CRITICAL: Fore.MAGENTA,
     }
 
+    def __init__(self, logger_name):
+        super().__init__()
+        self.logger_name = logger_name
+
     def format(self, record):
         color = self.LEVEL_COLORS.get(record.levelno, Fore.WHITE)
-        base_message = super().format(record)
-        return f"{color}{base_message}{Style.RESET_ALL}"
+        return self._format_message(record, color)
+
+    def _format_message(self, record, color):
+        record_file = os.path.basename(record.pathname)
+        location = f"{record_file}:{record.funcName}:{record.lineno}"
+        time = datetime.datetime.fromtimestamp(record.created).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+        level = record.levelname.ljust(8)
+        message = record.getMessage()
+        return f"{color}{time} | {level} | {self.logger_name}:{location} - {message}{Style.RESET_ALL}"
+
+
+class LoguruPlainFormatter(LoguruLikeFormatter):
+    def format(self, record):
+        return self._format_message(record, "")  # Sans couleur pour les fichiers
 
 
 _loggers = {}
 
 
-def get_logger(name: str, level: Optional[str] = None) -> SimpleLogger:
-    if name not in _loggers:
-        _loggers[name] = SimpleLogger(name, level)
-    return _loggers[name]
+def get_logger(name: Optional[str] = None, log_file: Optional[str] = None) -> SimpleLogger:
+    key = (name or "default", log_file)
+    if key not in _loggers:
+        _loggers[key] = SimpleLogger(name, log_file)
+    return _loggers[key]

@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "simple_logger"
+version = "1.0.0"
+description = "Lightweight logger with colored console and clean file logs"
+authors = ["Gabriel <gabriel.de.fombelle@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "simple_logger"}]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+colorama = "^0.4.6"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
