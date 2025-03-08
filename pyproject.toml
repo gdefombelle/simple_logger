@@ -15,3 +15,8 @@ colorama = "^0.4.6"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[[tool.poetry.source]]
+name = "github"
+url = "https://pypi.pkg.github.com/gdefombelle"
+priority = "primary"  # Anciennement "secondary"
