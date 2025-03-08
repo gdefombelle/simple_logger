@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "simple_logger"
-version = "1.0.0"
+version = "1.1.2"
 description = "Lightweight logger with colored console and clean file logs"
 authors = ["Gabriel <gabriel.de.fombelle@gmail.com>"]
 license = "MIT"
@@ -8,7 +8,7 @@ readme = "README.md"
 packages = [{include = "simple_logger"}]
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "^3.12"
 colorama = "^0.4.6"
 
 
@@ -16,7 +16,3 @@ colorama = "^0.4.6"
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
-[[tool.poetry.source]]
-name = "github"
-url = "https://pypi.pkg.github.com/gdefombelle"
-priority = "primary"  # Anciennement "secondary"
