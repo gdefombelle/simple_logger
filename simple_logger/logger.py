@@ -2,7 +2,10 @@ import logging
 import os
 import sys
 import datetime
+import re
+import unicodedata
 from typing import Optional
+from logging.handlers import TimedRotatingFileHandler
 from colorama import Fore, Style, init as colorama_init
 
 colorama_init(autoreset=True)
@@ -10,26 +13,31 @@ colorama_init(autoreset=True)
 SUCCESS_LEVEL = 25
 logging.addLevelName(SUCCESS_LEVEL, "SUCCESS")
 
-# Dossier de logs
-LOG_DIR = os.getenv("LOG_DIR", "/var/log/pytune/default")
-
-os.makedirs(LOG_DIR, exist_ok=True)
-
+LOG_DIR = os.getenv("LOG_DIR", "/var/log/pytune")
 _loggers = {}
 
+# ────────────── SLUGIFY ────────────── #
+
+def slugify(value: str) -> str:
+    value = unicodedata.normalize('NFKD', value)
+    value = value.encode('ascii', 'ignore').decode('ascii')
+    value = re.sub(r"[^\w\s-]", "", value).strip().lower()
+    return re.sub(r"[\s\-]+", "_", value)
 
 def get_log_file_path(name: Optional[str], log_file: Optional[str]) -> str:
-    today = datetime.datetime.now().strftime('%Y-%m-%d')
-    base_name = log_file or name or "default"
-    return os.path.join(LOG_DIR, f"{base_name}_{today}.log")
+    logger_name = slugify(name or "default")
+    base_name = slugify(log_file or logger_name)
+    log_dir = os.path.join(LOG_DIR, logger_name)
+    os.makedirs(log_dir, exist_ok=True)
+    return os.path.join(log_dir, f"{base_name}.log")  # sans date → rotation la gère
 
+# ────────────── LOGGER ────────────── #
 
 class SimpleLogger:
     def __init__(self, name: Optional[str] = None, log_file: Optional[str] = None):
         self.name = name or "default"
         self.log_file = log_file
         self.logger = logging.getLogger(self.name)
-
         self.logger.setLevel(logging.DEBUG)
 
         if not self._has_custom_handlers():
@@ -44,22 +52,27 @@ class SimpleLogger:
     def _configure_logger(self):
         log_file_path = get_log_file_path(self.name, self.log_file)
 
-        # Formatters
-        console_formatter = LoguruLikeFormatter(self.name)
-        file_formatter = LoguruPlainFormatter(self.name)
-
-        # Handlers
-        file_handler = logging.FileHandler(log_file_path, encoding="utf-8")
+        # 📁 Handler avec rotation
+        file_handler = TimedRotatingFileHandler(
+            filename=log_file_path,
+            when="midnight",
+            interval=1,
+            backupCount=14,
+            encoding="utf-8",
+            utc=True
+        )
         file_handler.setLevel(logging.DEBUG)
-        file_handler.setFormatter(file_formatter)
+        file_handler.setFormatter(LoguruPlainFormatter(self.name))
 
+        # 🎨 Console handler coloré
         stream_handler = logging.StreamHandler(sys.stdout)
         stream_handler.setLevel(logging.DEBUG)
-        stream_handler.setFormatter(console_formatter)
+        stream_handler.setFormatter(LoguruLikeFormatter(self.name))
 
-        # Ajout
         self.logger.addHandler(file_handler)
         self.logger.addHandler(stream_handler)
+
+        print(f"[SimpleLogger] Logging to: {log_file_path} (rotated daily, 14 backups)", flush=True)
 
     def log(self, level, message, **kwargs):
         self.logger.log(level, self._enrich_message(message, **kwargs))
@@ -85,6 +98,7 @@ class SimpleLogger:
             return f"{message} | " + " ".join(f"{k}={v}" for k, v in kwargs.items())
         return message
 
+# ────────────── FORMATTERS ────────────── #
 
 class LoguruLikeFormatter(logging.Formatter):
     LEVEL_COLORS = {
@@ -112,11 +126,11 @@ class LoguruLikeFormatter(logging.Formatter):
         message = record.getMessage()
         return f"{color}{timestamp} | {level} | {self.logger_name}:{location} - {message}{Style.RESET_ALL}"
 
-
 class LoguruPlainFormatter(LoguruLikeFormatter):
     def format(self, record):
-        return self._format_message(record, "")  # Pas de couleurs pour le fichier
+        return self._format_message(record, "")
 
+# ────────────── ENTRYPOINT ────────────── #
 
 def get_logger(name: Optional[str] = None, log_file: Optional[str] = None) -> SimpleLogger:
     key = (name or "default", log_file)
