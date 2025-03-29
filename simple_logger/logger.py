@@ -11,7 +11,8 @@ SUCCESS_LEVEL = 25
 logging.addLevelName(SUCCESS_LEVEL, "SUCCESS")
 
 # Dossier de logs
-LOG_DIR = os.getenv("LOG_DIR", "logs")
+LOG_DIR = os.getenv("LOG_DIR", "/var/log/pytune/default")
+
 os.makedirs(LOG_DIR, exist_ok=True)
 
 _loggers = {}
