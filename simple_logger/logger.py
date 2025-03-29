@@ -3,17 +3,18 @@ import os
 import sys
 import datetime
 from typing import Optional
+from colorama import Fore, Style, init as colorama_init
 
-import colorama
-from colorama import Fore, Style
-
-colorama.init(autoreset=True)
+colorama_init(autoreset=True)
 
 SUCCESS_LEVEL = 25
 logging.addLevelName(SUCCESS_LEVEL, "SUCCESS")
 
+# Dossier de logs
 LOG_DIR = os.getenv("LOG_DIR", "logs")
 os.makedirs(LOG_DIR, exist_ok=True)
+
+_loggers = {}
 
 
 def get_log_file_path(name: Optional[str], log_file: Optional[str]) -> str:
@@ -28,66 +29,59 @@ class SimpleLogger:
         self.log_file = log_file
         self.logger = logging.getLogger(self.name)
 
-        if not self.logger.hasHandlers():
+        self.logger.setLevel(logging.DEBUG)
+
+        if not self._has_custom_handlers():
             self._configure_logger()
 
-    def _configure_logger(self):
-        log_file = get_log_file_path(self.name, self.log_file)
+    def _has_custom_handlers(self):
+        return any(
+            isinstance(h, (logging.FileHandler, logging.StreamHandler))
+            for h in self.logger.handlers
+        )
 
+    def _configure_logger(self):
+        log_file_path = get_log_file_path(self.name, self.log_file)
+
+        # Formatters
         console_formatter = LoguruLikeFormatter(self.name)
         file_formatter = LoguruPlainFormatter(self.name)
 
-        file_handler = logging.FileHandler(log_file, encoding="utf-8")
+        # Handlers
+        file_handler = logging.FileHandler(log_file_path, encoding="utf-8")
+        file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(file_formatter)
 
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setFormatter(console_formatter)
+        stream_handler = logging.StreamHandler(sys.stdout)
+        stream_handler.setLevel(logging.DEBUG)
+        stream_handler.setFormatter(console_formatter)
 
-        self.logger.setLevel(logging.DEBUG)
+        # Ajout
         self.logger.addHandler(file_handler)
-        self.logger.addHandler(console_handler)
+        self.logger.addHandler(stream_handler)
 
     def log(self, level, message, **kwargs):
-        enriched_message = self._enrich_message(message, **kwargs)
-        self.logger.log(level, enriched_message)
-
-    def success(self, message, **kwargs):
-        self.log(SUCCESS_LEVEL, message, **kwargs)
-
-    def info(self, message, **kwargs):
-        self.log(logging.INFO, message, **kwargs)
-
-    def warning(self, message, **kwargs):
-        self.log(logging.WARNING, message, **kwargs)
-
-    def error(self, message, **kwargs):
-        self.log(logging.ERROR, message, **kwargs)
-
-    def critical(self, message, **kwargs):
-        self.log(logging.CRITICAL, message, **kwargs)
+        self.logger.log(level, self._enrich_message(message, **kwargs))
 
     async def alog(self, level, message, **kwargs):
         self.log(level, message, **kwargs)
 
-    async def asuccess(self, message, **kwargs):
-        await self.alog(SUCCESS_LEVEL, message, **kwargs)
+    def success(self, message, **kwargs): self.log(SUCCESS_LEVEL, message, **kwargs)
+    def info(self, message, **kwargs): self.log(logging.INFO, message, **kwargs)
+    def debug(self, message, **kwargs): self.log(logging.DEBUG, message, **kwargs)
+    def warning(self, message, **kwargs): self.log(logging.WARNING, message, **kwargs)
+    def error(self, message, **kwargs): self.log(logging.ERROR, message, **kwargs)
+    def critical(self, message, **kwargs): self.log(logging.CRITICAL, message, **kwargs)
 
-    async def ainfo(self, message, **kwargs):
-        await self.alog(logging.INFO, message, **kwargs)
-
-    async def awarning(self, message, **kwargs):
-        await self.alog(logging.WARNING, message, **kwargs)
-
-    async def aerror(self, message, **kwargs):
-        await self.alog(logging.ERROR, message, **kwargs)
-
-    async def acritical(self, message, **kwargs):
-        await self.alog(logging.CRITICAL, message, **kwargs)
+    async def asuccess(self, message, **kwargs): await self.alog(SUCCESS_LEVEL, message, **kwargs)
+    async def ainfo(self, message, **kwargs): await self.alog(logging.INFO, message, **kwargs)
+    async def awarning(self, message, **kwargs): await self.alog(logging.WARNING, message, **kwargs)
+    async def aerror(self, message, **kwargs): await self.alog(logging.ERROR, message, **kwargs)
+    async def acritical(self, message, **kwargs): await self.alog(logging.CRITICAL, message, **kwargs)
 
     def _enrich_message(self, message, **kwargs):
         if kwargs:
-            context = " | " + " ".join(f"{k}={v}" for k, v in kwargs.items())
-            return f"{message}{context}"
+            return f"{message} | " + " ".join(f"{k}={v}" for k, v in kwargs.items())
         return message
 
 
@@ -112,18 +106,15 @@ class LoguruLikeFormatter(logging.Formatter):
     def _format_message(self, record, color):
         record_file = os.path.basename(record.pathname)
         location = f"{record_file}:{record.funcName}:{record.lineno}"
-        time = datetime.datetime.fromtimestamp(record.created).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+        timestamp = datetime.datetime.fromtimestamp(record.created).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
         level = record.levelname.ljust(8)
         message = record.getMessage()
-        return f"{color}{time} | {level} | {self.logger_name}:{location} - {message}{Style.RESET_ALL}"
+        return f"{color}{timestamp} | {level} | {self.logger_name}:{location} - {message}{Style.RESET_ALL}"
 
 
 class LoguruPlainFormatter(LoguruLikeFormatter):
     def format(self, record):
-        return self._format_message(record, "")  # Sans couleur pour les fichiers
-
-
-_loggers = {}
+        return self._format_message(record, "")  # Pas de couleurs pour le fichier
 
 
 def get_logger(name: Optional[str] = None, log_file: Optional[str] = None) -> SimpleLogger:
