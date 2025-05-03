@@ -5,10 +5,12 @@ description = "Lightweight logger with colored console and clean file logs"
 authors = ["Gabriel <gabriel.de.fombelle@gmail.com>"]
 license = "MIT"
 readme = "README.md"
-packages = [{include = "simple_logger"}]
+packages = [{ include = "simple_logger" }]
+
+
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = "^3.12.3"
 colorama = "^0.4.6"
 
 
