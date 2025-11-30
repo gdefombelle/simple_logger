@@ -1,20 +1,24 @@
 [tool.poetry]
-name = "simple-logger"                # distribution = simple-logger
+name = "simple_logger"
 version = "2.0.1"
 description = "Lightweight logger with colored console and clean file logs"
 authors = ["Gabriel JF <gabriel.de.fombelle@gmail.com>"]
 license = "MIT"
 readme = "README.md"
-packages = [{ include = "simple_logger" }]
+
+# IMPORTANT : dis à Poetry où se trouve le package
+packages = [
+    { include = "simple_logger" }
+]
 
 [tool.poetry.dependencies]
-python = ">=3.12,<3.13"
+python = ">=3.8,<4.0"
 colorama = "^0.4.6"
 
 [tool.poetry.group.dev.dependencies]
-pytest = { version = "^8.2.0", python = ">=3.8" }
-ruff   = { version = "^0.6.8", python = ">=3.7" }
-mypy   = { version = "^1.11.1", python = ">=3.8" }
+pytest = "^8.2.0"
+ruff = "^0.6.8"
+mypy = "^1.11.1"
 
 [build-system]
 requires = ["poetry-core>=1.9.0"]
