@@ -2,14 +2,23 @@
 name = "simple_logger"
 version = "2.0.1"
 description = "Lightweight logger with colored console and clean file logs"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = { text = "MIT" }
+
 authors = [
     { name = "Gabriel JF", email = "gabriel.de.fombelle@gmail.com" }
 ]
-readme = "README.md"
-requires-python = ">=3.12,<3.13"
 
 dependencies = [
     "colorama>=0.4.6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2.0",
+    "ruff>=0.6.8",
+    "mypy>=1.11.1",
 ]
 
 [build-system]

@@ -9,7 +9,7 @@ from logging.handlers import TimedRotatingFileHandler
 from colorama import Fore, Style, init as colorama_init
 
 colorama_init(autoreset=True)
-
+# test 
 SUCCESS_LEVEL = 25
 logging.addLevelName(SUCCESS_LEVEL, "SUCCESS")
 
