@@ -64,7 +64,7 @@ This ensures:
 ### Creating a Logger
 
 ```python
-from simple_logger import get_logger
+from simple_logger.logger import get_logger
 
 logger = get_logger("my_service")
 ```

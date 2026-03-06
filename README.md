@@ -34,7 +34,7 @@ my_project/
 ### Basic Example
 
 ```python
-from simple_logger import get_logger
+from simple_logger.logger  import get_logger
 
 logger = get_logger("my_service")
 
